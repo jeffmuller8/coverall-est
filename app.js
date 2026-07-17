@@ -1,3 +1,21 @@
+// Firebase imports
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+// Firebase configuration
+const firebaseConfig = {
+  apiKey: "AIzaSyAGx4VttTUoNZzJMEv4ijvQuPhDqBz2k40",
+  authDomain: "coverall-estimator.firebaseapp.com",
+  projectId: "coverall-estimator",
+  storageBucket: "coverall-estimator.firebasestorage.app",
+  messagingSenderId: "666486038639",
+  appId: "1:666486038639:web:e1f79bb68f5f88ef5a6d9a"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
 // Pricing constants
 const PRICING = {
   fabric: {
@@ -27,6 +45,7 @@ const zipperCountGroup = document.getElementById('zipper-count-group');
 const magnetCountGroup = document.getElementById('magnet-count-group');
 const saveBtn = document.getElementById('save-btn');
 const quotesList = document.getElementById('quotes-list');
+const syncStatus = document.getElementById('sync-status');
 
 // Current calculation results (for saving)
 let currentResults = null;
@@ -83,7 +102,6 @@ function calculateEstimate() {
   }
 
   // Convert to yards with waste factor
-  // 1 yard of 54" fabric = 36" x 54" = 1944 sq in
   const sqInPerYard = 36 * PRICING.rollWidth;
 
   // Add waste factor based on roll width optimization (~35-40% waste typical)
@@ -105,8 +123,7 @@ function calculateEstimate() {
     const totalZipperYds = totalZipperIn / 36;
     closureCost = (totalZipperYds * PRICING.closure.zipper) + (zipperCount * PRICING.zipperPull);
   } else if (closureType === 'velcro') {
-    // Velcro runs same length as zipper would
-    const totalVelcroIn = zipperLength * 2; // assuming 2 strips
+    const totalVelcroIn = zipperLength * 2;
     const totalVelcroYds = totalVelcroIn / 36;
     closureCost = totalVelcroYds * PRICING.closure.velcro;
   } else if (closureType === 'magnet') {
@@ -119,13 +136,25 @@ function calculateEstimate() {
   const perCoverCost = materialCost + laborCost;
 
   // Calculate price with margin
-  // margin% = (price - cost) / price * 100
-  // price = cost / (1 - margin/100)
   const perCoverPrice = perCoverCost / (1 - marginPercent / 100);
 
   const totalCost = perCoverCost * quantity;
   const totalPrice = perCoverPrice * quantity;
   const profit = totalPrice - totalCost;
+
+  // Store results for saving
+  currentResults = {
+    width,
+    depth,
+    height,
+    coverType,
+    closureType,
+    zipperCount,
+    magnetCount,
+    marginPercent,
+    perCoverCost,
+    perCoverPrice
+  };
 
   // Display results
   document.getElementById('clear-fabric').textContent = clearYards > 0
@@ -145,26 +174,12 @@ function calculateEstimate() {
   document.getElementById('total-price').textContent = `$${totalPrice.toFixed(2)}`;
   document.getElementById('profit').textContent = `$${profit.toFixed(2)}`;
 
-  // Store results for saving
-  currentResults = {
-    width,
-    depth,
-    height,
-    coverType,
-    closureType,
-    zipperCount,
-    magnetCount,
-    marginPercent,
-    perCoverCost,
-    perCoverPrice
-  };
-
   resultsSection.classList.remove('hidden');
   resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
-// Save quote
-saveBtn.addEventListener('click', function() {
+// Save quote to Firebase
+saveBtn.addEventListener('click', async function() {
   const quoteName = document.getElementById('quote-name').value.trim();
 
   if (!quoteName) {
@@ -177,67 +192,63 @@ saveBtn.addEventListener('click', function() {
     return;
   }
 
-  const quote = {
-    id: Date.now(),
-    name: quoteName,
-    ...currentResults,
-    savedAt: new Date().toISOString()
-  };
+  syncStatus.textContent = 'Saving...';
 
-  // Get existing quotes
-  const quotes = getQuotes();
-  quotes.unshift(quote);
-  localStorage.setItem('coverall-quotes', JSON.stringify(quotes));
+  try {
+    await addDoc(collection(db, 'quotes'), {
+      name: quoteName,
+      ...currentResults,
+      savedAt: new Date().toISOString()
+    });
 
-  // Clear input and refresh list
-  document.getElementById('quote-name').value = '';
-  renderQuotes();
+    document.getElementById('quote-name').value = '';
+    syncStatus.textContent = 'Saved!';
+    setTimeout(() => { syncStatus.textContent = ''; }, 2000);
+  } catch (error) {
+    console.error('Error saving quote:', error);
+    syncStatus.textContent = 'Error saving';
+    alert('Error saving quote. Check console for details.');
+  }
 });
 
-// Get quotes from localStorage
-function getQuotes() {
-  const stored = localStorage.getItem('coverall-quotes');
-  return stored ? JSON.parse(stored) : [];
-}
+// Cover type labels
+const coverTypeLabels = {
+  'all-clear': 'All Clear',
+  'clear-vrn-top': 'Clear + VRN Top',
+  'all-vrn': 'All VRN',
+  'vrn-clear-window': 'VRN + Window'
+};
 
-// Render saved quotes
-function renderQuotes() {
-  const quotes = getQuotes();
-
+// Render quotes
+function renderQuotes(quotes) {
   if (quotes.length === 0) {
     quotesList.innerHTML = '<p class="no-quotes">No saved quotes yet</p>';
     return;
   }
 
-  const coverTypeLabels = {
-    'all-clear': 'All Clear',
-    'clear-vrn-top': 'Clear + VRN Top',
-    'all-vrn': 'All VRN',
-    'vrn-clear-window': 'VRN + Window'
-  };
-
   quotesList.innerHTML = quotes.map(quote => `
     <div class="quote-item" data-id="${quote.id}">
-      <div class="quote-info" onclick="loadQuote(${quote.id})">
+      <div class="quote-info" onclick="window.loadQuote('${quote.id}')">
         <div class="quote-name">${escapeHtml(quote.name)}</div>
         <div class="quote-details">
           ${quote.width}" × ${quote.depth}" × ${quote.height}" · ${coverTypeLabels[quote.coverType] || quote.coverType}
         </div>
       </div>
-      <div class="quote-prices" onclick="loadQuote(${quote.id})">
+      <div class="quote-prices" onclick="window.loadQuote('${quote.id}')">
         <div class="quote-cost">Cost: $${quote.perCoverCost.toFixed(2)}</div>
         <div class="quote-price">Price: $${quote.perCoverPrice.toFixed(2)}</div>
       </div>
-      <button class="quote-delete" onclick="deleteQuote(${quote.id}, event)">Delete</button>
+      <button class="quote-delete" onclick="window.deleteQuote('${quote.id}', event)">Delete</button>
     </div>
   `).join('');
 }
 
-// Load a saved quote into the form
-function loadQuote(id) {
-  const quotes = getQuotes();
-  const quote = quotes.find(q => q.id === id);
+// Store quotes for loading
+let quotesCache = [];
 
+// Load a saved quote into the form
+window.loadQuote = function(id) {
+  const quote = quotesCache.find(q => q.id === id);
   if (!quote) return;
 
   document.getElementById('width').value = quote.width;
@@ -249,34 +260,51 @@ function loadQuote(id) {
   document.getElementById('magnet-count').value = quote.magnetCount;
   document.getElementById('margin').value = quote.marginPercent;
 
-  // Update visibility of closure options
   zipperCountGroup.style.display = quote.closureType === 'zipper' ? 'block' : 'none';
   magnetCountGroup.style.display = quote.closureType === 'magnet' ? 'block' : 'none';
 
-  // Recalculate
   calculateEstimate();
-
-  // Scroll to top
   window.scrollTo({ top: 0, behavior: 'smooth' });
-}
+};
 
 // Delete a quote
-function deleteQuote(id, event) {
+window.deleteQuote = async function(id, event) {
   event.stopPropagation();
-
   if (!confirm('Delete this quote?')) return;
 
-  const quotes = getQuotes().filter(q => q.id !== id);
-  localStorage.setItem('coverall-quotes', JSON.stringify(quotes));
-  renderQuotes();
-}
+  syncStatus.textContent = 'Deleting...';
 
-// Escape HTML to prevent XSS
+  try {
+    await deleteDoc(doc(db, 'quotes', id));
+    syncStatus.textContent = 'Deleted!';
+    setTimeout(() => { syncStatus.textContent = ''; }, 2000);
+  } catch (error) {
+    console.error('Error deleting quote:', error);
+    syncStatus.textContent = 'Error';
+    alert('Error deleting quote.');
+  }
+};
+
+// Escape HTML
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
 }
 
-// Initialize quotes list on page load
-renderQuotes();
+// Listen for real-time updates from Firebase
+onSnapshot(collection(db, 'quotes'), (snapshot) => {
+  quotesCache = snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+
+  // Sort by savedAt descending
+  quotesCache.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+  renderQuotes(quotesCache);
+  syncStatus.textContent = '';
+}, (error) => {
+  console.error('Error listening to quotes:', error);
+  quotesList.innerHTML = '<p class="no-quotes">Error loading quotes. Check Firebase setup.</p>';
+});

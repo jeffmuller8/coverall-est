@@ -322,6 +322,16 @@ input:focus, select:focus {
   letter-spacing: 0.05em;
   color: #666;
   margin-bottom: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sync-status {
+  font-size: 0.75rem;
+  font-weight: normal;
+  text-transform: none;
+  color: #4caf50;
 }
 
 .quotes-list {
