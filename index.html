@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coverall Estimator</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Coverall Estimator</h1>
+      <p>Bakery Rack Cover Cost Calculator</p>
+    </header>
+
+    <main>
+      <form id="estimator-form">
+        <section class="form-section">
+          <h2>Rack Dimensions</h2>
+          <div class="input-row">
+            <div class="input-group">
+              <label for="width">Front Width</label>
+              <div class="input-with-unit">
+                <input type="number" id="width" step="0.25" min="0" required>
+                <span class="unit">in</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="depth">Depth</label>
+              <div class="input-with-unit">
+                <input type="number" id="depth" step="0.25" min="0" required>
+                <span class="unit">in</span>
+              </div>
+            </div>
+            <div class="input-group">
+              <label for="height">Height</label>
+              <div class="input-with-unit">
+                <input type="number" id="height" step="0.25" min="0" required>
+                <span class="unit">in</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Cover Type</h2>
+          <div class="input-row">
+            <div class="input-group full-width">
+              <label for="cover-type">Configuration</label>
+              <select id="cover-type" required>
+                <option value="all-clear">All Clear (SRC style)</option>
+                <option value="clear-vrn-top">Clear + VRN Top (SRC-1 style)</option>
+                <option value="all-vrn">All VRN (FRC-2 style)</option>
+                <option value="vrn-clear-window">VRN + Clear Window (FRC-1 style)</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Closure</h2>
+          <div class="input-row">
+            <div class="input-group">
+              <label for="closure">Closure Type</label>
+              <select id="closure" required>
+                <option value="zipper">Zipper</option>
+                <option value="velcro">Velcro</option>
+                <option value="magnet">Magnet</option>
+              </select>
+            </div>
+            <div class="input-group" id="zipper-count-group">
+              <label for="zipper-count">Number of Zippers</label>
+              <select id="zipper-count">
+                <option value="1">1 Zipper</option>
+                <option value="2" selected>2 Zippers (left/right)</option>
+              </select>
+            </div>
+          </div>
+          <div class="input-row" id="closure-details">
+            <div class="input-group" id="magnet-count-group" style="display: none;">
+              <label for="magnet-count">Number of Magnets</label>
+              <input type="number" id="magnet-count" value="4" min="1">
+            </div>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h2>Quantity & Margin</h2>
+          <div class="input-row">
+            <div class="input-group">
+              <label for="quantity">Number of Covers</label>
+              <input type="number" id="quantity" value="1" min="1" required>
+            </div>
+            <div class="input-group">
+              <label for="margin">Margin %</label>
+              <div class="input-with-unit">
+                <input type="number" id="margin" value="70" min="0" max="95" step="1">
+                <span class="unit">%</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <button type="submit" class="calculate-btn">Calculate Estimate</button>
+      </form>
+
+      <section id="results" class="results hidden">
+        <h2>Cost Breakdown</h2>
+
+        <div class="results-grid">
+          <div class="result-item">
+            <span class="label">Clear Fabric</span>
+            <span class="value" id="clear-fabric">-</span>
+          </div>
+          <div class="result-item">
+            <span class="label">VRN Fabric</span>
+            <span class="value" id="vrn-fabric">-</span>
+          </div>
+          <div class="result-item">
+            <span class="label">Closure</span>
+            <span class="value" id="closure-cost">-</span>
+          </div>
+          <div class="result-item">
+            <span class="label">Labor</span>
+            <span class="value" id="labor-cost">-</span>
+          </div>
+        </div>
+
+        <div class="cost-row">
+          <span class="label">Material Cost</span>
+          <span class="value" id="material-total">-</span>
+        </div>
+
+        <div class="cost-row highlight">
+          <span class="label">COST (per cover)</span>
+          <span class="value" id="per-cover-cost">-</span>
+        </div>
+
+        <div class="price-row">
+          <span class="label">PRICE (per cover @ <span id="margin-display">70</span>% margin)</span>
+          <span class="value" id="per-cover-price">-</span>
+        </div>
+
+        <div class="grand-total">
+          <div class="total-line">
+            <span class="label">Total Cost (<span id="qty-display">1</span> covers)</span>
+            <span class="value" id="total-cost">-</span>
+          </div>
+          <div class="total-line price">
+            <span class="label">Total Price</span>
+            <span class="value" id="total-price">-</span>
+          </div>
+        </div>
+
+        <div class="profit-summary">
+          <span class="label">Profit</span>
+          <span class="value" id="profit">-</span>
+        </div>
+
+        <div class="save-quote">
+          <div class="input-row">
+            <div class="input-group">
+              <label for="quote-name">Quote Name</label>
+              <input type="text" id="quote-name" placeholder="e.g., SRC-1 Standard">
+            </div>
+            <button type="button" id="save-btn" class="save-btn">Save Quote</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="saved-quotes" class="saved-quotes">
+        <h2>Saved Quotes</h2>
+        <div id="quotes-list" class="quotes-list">
+          <p class="no-quotes">No saved quotes yet</p>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
