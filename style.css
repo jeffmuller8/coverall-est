@@ -221,13 +221,6 @@ input:focus, select:focus {
   color: #2e7d32;
 }
 
-.grand-total {
-  background: #fafafa;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 0.75rem;
-}
-
 .total-line {
   display: flex;
   justify-content: space-between;
@@ -252,12 +245,27 @@ input:focus, select:focus {
 }
 
 .total-line.price .label {
-  color: #2e7d32;
+  color: white;
 }
 
 .total-line.price .value {
   font-size: 1.35rem;
-  color: #2e7d32;
+  color: white;
+}
+
+.grand-total {
+  background: linear-gradient(135deg, #4caf50, #2e7d32);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.total-line .label {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.total-line .value {
+  color: white;
 }
 
 .profit-summary {
@@ -265,8 +273,8 @@ input:focus, select:focus {
   justify-content: space-between;
   align-items: center;
   padding: 1rem;
-  background: linear-gradient(135deg, #4caf50, #2e7d32);
-  color: white;
+  background: #e8f5e9;
+  border: 2px solid #4caf50;
   border-radius: 8px;
 }
 
@@ -275,11 +283,13 @@ input:focus, select:focus {
   font-size: 0.9rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+  color: #2e7d32;
 }
 
 .profit-summary .value {
   font-size: 1.5rem;
   font-weight: 700;
+  color: #2e7d32;
 }
 
 .save-quote {
