@@ -32,6 +32,49 @@ header p {
   color: #666;
 }
 
+.auth-section {
+  margin-top: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.user-info {
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.auth-btn {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.auth-btn:not(.sign-out) {
+  color: white;
+  background: #4285f4;
+  border: none;
+}
+
+.auth-btn:not(.sign-out):hover {
+  background: #3367d6;
+}
+
+.auth-btn.sign-out {
+  color: #666;
+  background: white;
+  border: 1px solid #ddd;
+}
+
+.auth-btn.sign-out:hover {
+  border-color: #999;
+  color: #333;
+}
+
 main {
   background: white;
   border-radius: 12px;

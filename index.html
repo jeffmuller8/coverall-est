@@ -11,9 +11,14 @@
     <header>
       <h1>Coverall Estimator</h1>
       <p>Bakery Rack Cover Cost Calculator</p>
+      <div id="auth-section" class="auth-section">
+        <span id="user-info" class="user-info" style="display: none;"></span>
+        <button id="sign-in-btn" class="auth-btn">Sign in with Google</button>
+        <button id="sign-out-btn" class="auth-btn sign-out" style="display: none;">Sign Out</button>
+      </div>
     </header>
 
-    <main>
+    <main id="app-content" style="display: none;">
       <form id="estimator-form">
         <section class="form-section">
           <h2>Rack Dimensions</h2>

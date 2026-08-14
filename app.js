@@ -1,7 +1,7 @@
 // Firebase imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
 import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -331,17 +331,54 @@ function setupQuotesListener(userId) {
   });
 }
 
-// Listen for auth state changes and sign in anonymously
+// Google Auth Provider
+const googleProvider = new GoogleAuthProvider();
+
+// Auth UI elements
+const authSection = document.getElementById('auth-section');
+const signInBtn = document.getElementById('sign-in-btn');
+const signOutBtn = document.getElementById('sign-out-btn');
+const userInfo = document.getElementById('user-info');
+const appContent = document.getElementById('app-content');
+
+// Sign in with Google
+signInBtn.addEventListener('click', () => {
+  signInWithPopup(auth, googleProvider).catch((error) => {
+    console.error('Error signing in:', error);
+    alert('Error signing in. Please try again.');
+  });
+});
+
+// Sign out
+signOutBtn.addEventListener('click', () => {
+  signOut(auth).catch((error) => {
+    console.error('Error signing out:', error);
+  });
+});
+
+// Listen for auth state changes
 onAuthStateChanged(auth, (user) => {
   if (user) {
     currentUserId = user.uid;
-    console.log('Signed in as:', currentUserId);
+    console.log('Signed in as:', user.email);
+
+    // Show app, hide sign-in
+    signInBtn.style.display = 'none';
+    signOutBtn.style.display = 'inline-block';
+    userInfo.textContent = user.email;
+    userInfo.style.display = 'inline';
+    appContent.style.display = 'block';
+
     setupQuotesListener(currentUserId);
   } else {
-    // Sign in anonymously
-    signInAnonymously(auth).catch((error) => {
-      console.error('Error signing in:', error);
-      quotesList.innerHTML = '<p class="no-quotes">Error authenticating. Please refresh.</p>';
-    });
+    currentUserId = null;
+
+    // Show sign-in, hide app
+    signInBtn.style.display = 'inline-block';
+    signOutBtn.style.display = 'none';
+    userInfo.style.display = 'none';
+    appContent.style.display = 'none';
+    quotesList.innerHTML = '';
+    quotesCache = [];
   }
 });
