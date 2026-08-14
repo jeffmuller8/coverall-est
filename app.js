@@ -1,6 +1,7 @@
 // Firebase imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getAuth, signInAnonymously, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 // Firebase configuration
 const firebaseConfig = {
@@ -15,6 +16,10 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
+
+// Current user ID
+let currentUserId = null;
 
 // Pricing constants
 const PRICING = {
@@ -198,6 +203,7 @@ saveBtn.addEventListener('click', async function() {
     await addDoc(collection(db, 'quotes'), {
       name: quoteName,
       ...currentResults,
+      userId: currentUserId,
       savedAt: new Date().toISOString()
     });
 
@@ -292,19 +298,50 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Listen for real-time updates from Firebase
-onSnapshot(collection(db, 'quotes'), (snapshot) => {
-  quotesCache = snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+// Unsubscribe function for quotes listener
+let unsubscribeQuotes = null;
 
-  // Sort by savedAt descending
-  quotesCache.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+// Set up quotes listener for a specific user
+function setupQuotesListener(userId) {
+  // Unsubscribe from previous listener if exists
+  if (unsubscribeQuotes) {
+    unsubscribeQuotes();
+  }
 
-  renderQuotes(quotesCache);
-  syncStatus.textContent = '';
-}, (error) => {
-  console.error('Error listening to quotes:', error);
-  quotesList.innerHTML = '<p class="no-quotes">Error loading quotes. Check Firebase setup.</p>';
+  // Query only this user's quotes
+  const userQuotesQuery = query(
+    collection(db, 'quotes'),
+    where('userId', '==', userId)
+  );
+
+  unsubscribeQuotes = onSnapshot(userQuotesQuery, (snapshot) => {
+    quotesCache = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Sort by savedAt descending
+    quotesCache.sort((a, b) => new Date(b.savedAt) - new Date(a.savedAt));
+
+    renderQuotes(quotesCache);
+    syncStatus.textContent = '';
+  }, (error) => {
+    console.error('Error listening to quotes:', error);
+    quotesList.innerHTML = '<p class="no-quotes">Error loading quotes. Check Firebase setup.</p>';
+  });
+}
+
+// Listen for auth state changes and sign in anonymously
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUserId = user.uid;
+    console.log('Signed in as:', currentUserId);
+    setupQuotesListener(currentUserId);
+  } else {
+    // Sign in anonymously
+    signInAnonymously(auth).catch((error) => {
+      console.error('Error signing in:', error);
+      quotesList.innerHTML = '<p class="no-quotes">Error authenticating. Please refresh.</p>';
+    });
+  }
 });
