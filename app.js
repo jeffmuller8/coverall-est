@@ -1,6 +1,6 @@
 // Firebase imports
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
-import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot, query, where } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+import { getFirestore, collection, addDoc, getDocs, deleteDoc, doc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
 import { getAuth, signInWithPopup, signOut, GoogleAuthProvider, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
 
 // Firebase configuration
@@ -200,10 +200,11 @@ saveBtn.addEventListener('click', async function() {
   syncStatus.textContent = 'Saving...';
 
   try {
+    const user = auth.currentUser;
     await addDoc(collection(db, 'quotes'), {
       name: quoteName,
       ...currentResults,
-      userId: currentUserId,
+      createdBy: user?.email || 'unknown',
       savedAt: new Date().toISOString()
     });
 
@@ -301,20 +302,15 @@ function escapeHtml(text) {
 // Unsubscribe function for quotes listener
 let unsubscribeQuotes = null;
 
-// Set up quotes listener for a specific user
-function setupQuotesListener(userId) {
+// Set up quotes listener (shared across all users)
+function setupQuotesListener() {
   // Unsubscribe from previous listener if exists
   if (unsubscribeQuotes) {
     unsubscribeQuotes();
   }
 
-  // Query only this user's quotes
-  const userQuotesQuery = query(
-    collection(db, 'quotes'),
-    where('userId', '==', userId)
-  );
-
-  unsubscribeQuotes = onSnapshot(userQuotesQuery, (snapshot) => {
+  // All authenticated users see all quotes (shared workspace)
+  unsubscribeQuotes = onSnapshot(collection(db, 'quotes'), (snapshot) => {
     quotesCache = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -369,7 +365,7 @@ onAuthStateChanged(auth, (user) => {
     userInfo.style.display = 'inline';
     appContent.style.display = 'block';
 
-    setupQuotesListener(currentUserId);
+    setupQuotesListener();
   } else {
     currentUserId = null;
 
