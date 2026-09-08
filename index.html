@@ -53,16 +53,22 @@
             <div class="input-group full-width">
               <label for="cover-type">Configuration</label>
               <select id="cover-type" required>
-                <option value="all-clear">All Clear (SRC style)</option>
-                <option value="clear-vrn-top">Clear + VRN Top (SRC-1 style)</option>
-                <option value="all-vrn">All VRN (FRC-2 style)</option>
-                <option value="vrn-clear-window">VRN + Clear Window (FRC-1 style)</option>
+                <optgroup label="Standard Covers">
+                  <option value="all-clear">All Clear (SRC style)</option>
+                  <option value="clear-vrn-top">Clear + VRN Top (SRC-1 style)</option>
+                  <option value="all-vrn">All VRN (FRC-2 style)</option>
+                  <option value="vrn-clear-window">VRN + Clear Window (FRC-1 style)</option>
+                </optgroup>
+                <optgroup label="Gusset Covers (No Closure)">
+                  <option value="gusset-clear">Gusset - All Clear</option>
+                  <option value="gusset-vrn">Gusset - All VRN</option>
+                </optgroup>
               </select>
             </div>
           </div>
         </section>
 
-        <section class="form-section">
+        <section class="form-section" id="closure-section">
           <h2>Closure</h2>
           <div class="input-row">
             <div class="input-group">

@@ -35,6 +35,7 @@ const PRICING = {
   zipperPull: 0.18,  // each
   laborRate: 17,     // per hour
   laborTime: 12,     // minutes per cover
+  gussetLaborTime: 7, // minutes per gusset cover (faster)
   rollWidth: 54,     // inches
   zipperShorter: 1.5 // zipper is 1.5" shorter than height
 };
@@ -46,6 +47,8 @@ const LABOR_PER_COVER = (PRICING.laborRate / 60) * PRICING.laborTime;
 const form = document.getElementById('estimator-form');
 const resultsSection = document.getElementById('results');
 const closureSelect = document.getElementById('closure');
+const closureSection = document.getElementById('closure-section');
+const coverTypeSelect = document.getElementById('cover-type');
 const zipperCountGroup = document.getElementById('zipper-count-group');
 const magnetCountGroup = document.getElementById('magnet-count-group');
 const saveBtn = document.getElementById('save-btn');
@@ -59,6 +62,12 @@ let currentResults = null;
 closureSelect.addEventListener('change', function() {
   zipperCountGroup.style.display = this.value === 'zipper' ? 'block' : 'none';
   magnetCountGroup.style.display = this.value === 'magnet' ? 'block' : 'none';
+});
+
+// Show/hide closure section based on cover type (gussets have no closure)
+coverTypeSelect.addEventListener('change', function() {
+  const isGusset = this.value.startsWith('gusset-');
+  closureSection.style.display = isGusset ? 'none' : 'block';
 });
 
 // Form submission
@@ -79,65 +88,110 @@ function calculateEstimate() {
   const quantity = parseInt(document.getElementById('quantity').value);
   const marginPercent = parseFloat(document.getElementById('margin').value);
 
-  // Calculate panel areas (in square inches)
-  const frontArea = width * height;
-  const backArea = width * height;
-  const sidesArea = 2 * (depth * height);
-  const topArea = width * depth;
+  const isGusset = coverType.startsWith('gusset-');
 
   // Determine which panels use which fabric based on cover type
   let clearSqIn = 0;
   let vrnSqIn = 0;
 
-  switch (coverType) {
-    case 'all-clear':
-      clearSqIn = frontArea + backArea + sidesArea + topArea;
-      break;
-    case 'clear-vrn-top':
-      clearSqIn = frontArea + backArea + sidesArea;
-      vrnSqIn = topArea;
-      break;
-    case 'all-vrn':
-      vrnSqIn = frontArea + backArea + sidesArea + topArea;
-      break;
-    case 'vrn-clear-window':
-      clearSqIn = frontArea; // window = clear front
-      vrnSqIn = backArea + sidesArea + topArea;
-      break;
-  }
-
   // Convert to yards with waste factor
   const sqInPerYard = 36 * PRICING.rollWidth;
 
-  // Add waste factor based on roll width optimization (~35-40% waste typical)
+  // Standard waste factor
   const wasteFactor = 1.38;
 
-  const clearYards = clearSqIn > 0 ? (clearSqIn / sqInPerYard) * wasteFactor : 0;
-  const vrnYards = vrnSqIn > 0 ? (vrnSqIn / sqInPerYard) * wasteFactor : 0;
+  if (isGusset) {
+    // Gusset covers: main piece (front+top+back) + two side panels
+    // Main piece dimensions: width × (2×height + depth)
+    const mainPieceLength = (2 * height) + depth; // This dimension runs across the roll
+    const sidesArea = 2 * (depth * height);
+
+    // Check if main piece exceeds roll width (54")
+    // If mainPieceLength > rollWidth, we need to cut it in pieces, adding more waste
+    let gussetWasteFactor = wasteFactor;
+    if (mainPieceLength > PRICING.rollWidth) {
+      // Main piece needs to be cut in sections, extra waste for seams
+      gussetWasteFactor = 1.55; // Higher waste for oversized pieces
+    }
+
+    const mainPieceArea = width * mainPieceLength;
+    const totalArea = mainPieceArea + sidesArea;
+
+    if (coverType === 'gusset-clear') {
+      clearSqIn = totalArea;
+    } else if (coverType === 'gusset-vrn') {
+      vrnSqIn = totalArea;
+    }
+
+    // Apply gusset-specific waste factor
+    if (clearSqIn > 0) {
+      clearSqIn = (clearSqIn / sqInPerYard) * gussetWasteFactor * sqInPerYard;
+    }
+    if (vrnSqIn > 0) {
+      vrnSqIn = (vrnSqIn / sqInPerYard) * gussetWasteFactor * sqInPerYard;
+    }
+  } else {
+    // Standard covers: separate panels
+    const frontArea = width * height;
+    const backArea = width * height;
+    const sidesArea = 2 * (depth * height);
+    const topArea = width * depth;
+
+    switch (coverType) {
+      case 'all-clear':
+        clearSqIn = frontArea + backArea + sidesArea + topArea;
+        break;
+      case 'clear-vrn-top':
+        clearSqIn = frontArea + backArea + sidesArea;
+        vrnSqIn = topArea;
+        break;
+      case 'all-vrn':
+        vrnSqIn = frontArea + backArea + sidesArea + topArea;
+        break;
+      case 'vrn-clear-window':
+        clearSqIn = frontArea; // window = clear front
+        vrnSqIn = backArea + sidesArea + topArea;
+        break;
+    }
+  }
+
+  // Calculate yards (apply waste factor for non-gusset, already applied for gusset)
+  const clearYards = clearSqIn > 0
+    ? (isGusset ? clearSqIn / sqInPerYard : (clearSqIn / sqInPerYard) * wasteFactor)
+    : 0;
+  const vrnYards = vrnSqIn > 0
+    ? (isGusset ? vrnSqIn / sqInPerYard : (vrnSqIn / sqInPerYard) * wasteFactor)
+    : 0;
 
   // Calculate fabric costs
   const clearCost = clearYards * PRICING.fabric.clear;
   const vrnCost = vrnYards * PRICING.fabric.vrn;
 
-  // Calculate closure cost
+  // Calculate closure cost (gussets have no closure)
   let closureCost = 0;
-  const zipperLength = height - PRICING.zipperShorter;
 
-  if (closureType === 'zipper') {
-    const totalZipperIn = zipperLength * zipperCount;
-    const totalZipperYds = totalZipperIn / 36;
-    closureCost = (totalZipperYds * PRICING.closure.zipper) + (zipperCount * PRICING.zipperPull);
-  } else if (closureType === 'velcro') {
-    const totalVelcroIn = zipperLength * 2;
-    const totalVelcroYds = totalVelcroIn / 36;
-    closureCost = totalVelcroYds * PRICING.closure.velcro;
-  } else if (closureType === 'magnet') {
-    closureCost = magnetCount * PRICING.closure.magnet;
+  if (!isGusset) {
+    const zipperLength = height - PRICING.zipperShorter;
+
+    if (closureType === 'zipper') {
+      const totalZipperIn = zipperLength * zipperCount;
+      const totalZipperYds = totalZipperIn / 36;
+      closureCost = (totalZipperYds * PRICING.closure.zipper) + (zipperCount * PRICING.zipperPull);
+    } else if (closureType === 'velcro') {
+      const totalVelcroIn = zipperLength * 2;
+      const totalVelcroYds = totalVelcroIn / 36;
+      closureCost = totalVelcroYds * PRICING.closure.velcro;
+    } else if (closureType === 'magnet') {
+      closureCost = magnetCount * PRICING.closure.magnet;
+    }
   }
+
+  // Calculate labor cost (gussets are faster)
+  const laborMinutes = isGusset ? PRICING.gussetLaborTime : PRICING.laborTime;
+  const laborCost = (PRICING.laborRate / 60) * laborMinutes;
 
   // Calculate totals
   const materialCost = clearCost + vrnCost + closureCost;
-  const laborCost = LABOR_PER_COVER;
   const perCoverCost = materialCost + laborCost;
 
   // Calculate price with margin
@@ -223,7 +277,9 @@ const coverTypeLabels = {
   'all-clear': 'All Clear',
   'clear-vrn-top': 'Clear + VRN Top',
   'all-vrn': 'All VRN',
-  'vrn-clear-window': 'VRN + Window'
+  'vrn-clear-window': 'VRN + Window',
+  'gusset-clear': 'Gusset Clear',
+  'gusset-vrn': 'Gusset VRN'
 };
 
 // Render quotes
@@ -262,13 +318,16 @@ window.loadQuote = function(id) {
   document.getElementById('depth').value = quote.depth;
   document.getElementById('height').value = quote.height;
   document.getElementById('cover-type').value = quote.coverType;
-  document.getElementById('closure').value = quote.closureType;
-  document.getElementById('zipper-count').value = quote.zipperCount;
-  document.getElementById('magnet-count').value = quote.magnetCount;
+  document.getElementById('closure').value = quote.closureType || 'zipper';
+  document.getElementById('zipper-count').value = quote.zipperCount || 2;
+  document.getElementById('magnet-count').value = quote.magnetCount || 4;
   document.getElementById('margin').value = quote.marginPercent;
 
-  zipperCountGroup.style.display = quote.closureType === 'zipper' ? 'block' : 'none';
-  magnetCountGroup.style.display = quote.closureType === 'magnet' ? 'block' : 'none';
+  // Handle closure section visibility for gussets
+  const isGusset = quote.coverType.startsWith('gusset-');
+  closureSection.style.display = isGusset ? 'none' : 'block';
+  zipperCountGroup.style.display = (!isGusset && quote.closureType === 'zipper') ? 'block' : 'none';
+  magnetCountGroup.style.display = (!isGusset && quote.closureType === 'magnet') ? 'block' : 'none';
 
   calculateEstimate();
   window.scrollTo({ top: 0, behavior: 'smooth' });
