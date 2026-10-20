@@ -167,10 +167,10 @@ function calculateEstimate() {
   const clearCost = clearYards * PRICING.fabric.clear;
   const vrnCost = vrnYards * PRICING.fabric.vrn;
 
-  // Calculate closure cost (gussets have no closure)
+  // Calculate closure cost (gussets and closed covers have no closure)
   let closureCost = 0;
 
-  if (!isGusset) {
+  if (!isGusset && closureType !== 'none') {
     const zipperLength = height - PRICING.zipperShorter;
 
     if (closureType === 'zipper') {
